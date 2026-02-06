@@ -32,12 +32,22 @@ def carregar_modelo_whisper():
     return whisper.load_model("tiny") # Usando 'tiny' para não explodir a RAM do servidor grátis
 
 def baixar_audio(url):
-    """Baixa e encontra o arquivo real na pasta, não importa a extensão"""
+    """Versão Força Bruta: Pega qualquer arquivo que cair na pasta"""
     
+    # 1. Limpeza Garantida: Remove TUDO da pasta downloads antes de começar
+    if not os.path.exists("downloads"):
+        os.makedirs("downloads")
+        
+    for f in os.listdir("downloads"):
+        try:
+            os.remove(os.path.join("downloads", f))
+        except:
+            pass # Se não der pra apagar, ignora
+
+    # Configuração anti-bloqueio
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': 'downloads/%(id)s.%(ext)s',
-        # Removemos a conversão forçada para evitar erros se o FFmpeg demorar
+        'outtmpl': 'downloads/%(id)s.%(ext)s', # Salva com o ID para tentar organizar
         'quiet': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'referer': 'https://www.youtube.com/',
@@ -46,24 +56,24 @@ def baixar_audio(url):
         'geo_bypass': True,
     }
     
-    # 1. Limpa a pasta downloads antes de começar (para não misturar arquivos antigos)
-    for f in os.listdir("downloads"):
-        os.remove(os.path.join("downloads", f))
-
-    # 2. Baixa
+    # 2. Baixa o arquivo
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
-        video_id = info['id']
         titulo = info['title']
         thumb = info['thumbnail']
         
-        # 3. CAÇADOR DE ARQUIVOS: Procura qual arquivo foi gerado
-        for arquivo in os.listdir("downloads"):
-            if video_id in arquivo:
-                caminho_completo = os.path.join("downloads", arquivo)
-                return caminho_completo, titulo, thumb
-                
-        raise Exception("O download parece ter funcionado, mas não achei o arquivo na pasta!")
+        # 3. MODO FORÇA BRUTA: Pega o primeiro arquivo que encontrar na pasta
+        arquivos_na_pasta = os.listdir("downloads")
+        
+        # Se a pasta estiver vazia, aí sim temos um problema
+        if not arquivos_na_pasta:
+            raise Exception("ERRO MISTERIOSO: O Youtube-DL disse que baixou, mas a pasta 'downloads' está VAZIA.")
+            
+        # Pega o primeiro arquivo (ignorando se é .mp3, .webm, .m4a)
+        arquivo_encontrado = arquivos_na_pasta[0]
+        caminho_completo = os.path.join("downloads", arquivo_encontrado)
+        
+        return caminho_completo, titulo, thumb
 # --- Interface do Usuário ---
 
 url = st.text_input("🔗 Link do YouTube (Teste com vídeos curtos < 10min):")
@@ -102,5 +112,6 @@ if st.button("🚀 INICIAR ANÁLISE REAL"):
         except Exception as e:
             status.update(label="❌ Erro Crítico", state="error")
             st.error(f"Ocorreu um erro: {e}")
+
 
 
