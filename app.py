@@ -32,9 +32,9 @@ def carregar_modelo_whisper():
     return whisper.load_model("tiny") # Usando 'tiny' para não explodir a RAM do servidor grátis
 
 def baixar_audio(url):
-    """Versão Força Bruta: Pega qualquer arquivo que cair na pasta"""
+    """Versão Camuflagem Android: Tenta enganar o bloqueio simulando um celular"""
     
-    # 1. Limpeza Garantida: Remove TUDO da pasta downloads antes de começar
+    # 1. Limpeza Garantida
     if not os.path.exists("downloads"):
         os.makedirs("downloads")
         
@@ -42,38 +42,45 @@ def baixar_audio(url):
         try:
             os.remove(os.path.join("downloads", f))
         except:
-            pass # Se não der pra apagar, ignora
+            pass
 
-    # Configuração anti-bloqueio
+    # 2. Configuração Especial para 'Pular o Muro'
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': 'downloads/%(id)s.%(ext)s', # Salva com o ID para tentar organizar
-        'quiet': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'referer': 'https://www.youtube.com/',
+        'outtmpl': 'downloads/%(id)s.%(ext)s',
+        'quiet': False, # Liguei o barulho para vermos erros no log se precisar
+        
+        # --- O TRUQUE DO ANDROID ---
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'], # Diz que é um Android
+            }
+        },
+        
         'nocheckcertificate': True,
-        'ignoreerrors': True,
+        'ignoreerrors': False, # Desliguei isso para vermos o erro real se falhar
         'geo_bypass': True,
     }
     
-    # 2. Baixa o arquivo
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        titulo = info['title']
-        thumb = info['thumbnail']
-        
-        # 3. MODO FORÇA BRUTA: Pega o primeiro arquivo que encontrar na pasta
-        arquivos_na_pasta = os.listdir("downloads")
-        
-        # Se a pasta estiver vazia, aí sim temos um problema
-        if not arquivos_na_pasta:
-            raise Exception("ERRO MISTERIOSO: O Youtube-DL disse que baixou, mas a pasta 'downloads' está VAZIA.")
+    # 3. Tenta baixar
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            titulo = info['title']
+            thumb = info['thumbnail']
             
-        # Pega o primeiro arquivo (ignorando se é .mp3, .webm, .m4a)
-        arquivo_encontrado = arquivos_na_pasta[0]
-        caminho_completo = os.path.join("downloads", arquivo_encontrado)
+    except Exception as e:
+        # Se der erro aqui, vamos mostrar na tela
+        raise Exception(f"O YouTube bloqueou a conexão. Detalhe do erro: {e}")
+
+    # 4. Verifica se baixou
+    arquivos_na_pasta = os.listdir("downloads")
+    if not arquivos_na_pasta:
+        raise Exception("Ainda bloqueado. O arquivo não apareceu na pasta.")
         
-        return caminho_completo, titulo, thumb
+    # Pega o arquivo
+    arquivo_encontrado = arquivos_na_pasta[0]
+    return os.path.join("downloads", arquivo_encontrado), titulo, thumb
 # --- Interface do Usuário ---
 
 url = st.text_input("🔗 Link do YouTube (Teste com vídeos curtos < 10min):")
@@ -112,6 +119,7 @@ if st.button("🚀 INICIAR ANÁLISE REAL"):
         except Exception as e:
             status.update(label="❌ Erro Crítico", state="error")
             st.error(f"Ocorreu um erro: {e}")
+
 
 
 
