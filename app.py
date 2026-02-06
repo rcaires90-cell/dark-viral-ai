@@ -32,7 +32,9 @@ def carregar_modelo_whisper():
     return whisper.load_model("tiny") # Usando 'tiny' para não explodir a RAM do servidor grátis
 
 def baixar_audio(url):
-    """Baixa apenas o áudio do vídeo para análise rápida"""
+    """Baixa áudio com 'disfarce' de navegador para evitar erro 403"""
+    
+    # Opções extras para enganar o bloqueio do YouTube
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'downloads/%(id)s.%(ext)s',
@@ -41,8 +43,16 @@ def baixar_audio(url):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'quiet': True
+        'quiet': True,
+        
+        # --- O DISFARCE (User-Agent) ---
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'referer': 'https://www.youtube.com/',
+        'nocheckcertificate': True,
+        'ignoreerrors': True,  # Continua mesmo se der erro pequeno
+        'geo_bypass': True,    # Tenta pular bloqueio de região
     }
+    
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
         filename = ydl.prepare_filename(info).replace(info['ext'], 'mp3')
@@ -86,3 +96,4 @@ if st.button("🚀 INICIAR ANÁLISE REAL"):
         except Exception as e:
             status.update(label="❌ Erro Crítico", state="error")
             st.error(f"Ocorreu um erro: {e}")
+
