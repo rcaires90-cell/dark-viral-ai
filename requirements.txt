@@ -3,4 +3,5 @@ yt-dlp
 moviepy
 openai-whisper
 torch
+pytubefix
 numpy
