@@ -32,32 +32,38 @@ def carregar_modelo_whisper():
     return whisper.load_model("tiny") # Usando 'tiny' para não explodir a RAM do servidor grátis
 
 def baixar_audio(url):
-    """Baixa áudio com 'disfarce' de navegador para evitar erro 403"""
+    """Baixa e encontra o arquivo real na pasta, não importa a extensão"""
     
-    # Opções extras para enganar o bloqueio do YouTube
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'downloads/%(id)s.%(ext)s',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
+        # Removemos a conversão forçada para evitar erros se o FFmpeg demorar
         'quiet': True,
-        
-        # --- O DISFARCE (User-Agent) ---
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'referer': 'https://www.youtube.com/',
         'nocheckcertificate': True,
-        'ignoreerrors': True,  # Continua mesmo se der erro pequeno
-        'geo_bypass': True,    # Tenta pular bloqueio de região
+        'ignoreerrors': True,
+        'geo_bypass': True,
     }
     
+    # 1. Limpa a pasta downloads antes de começar (para não misturar arquivos antigos)
+    for f in os.listdir("downloads"):
+        os.remove(os.path.join("downloads", f))
+
+    # 2. Baixa
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info).replace(info['ext'], 'mp3')
-        return filename, info['title'], info['thumbnail']
-
+        video_id = info['id']
+        titulo = info['title']
+        thumb = info['thumbnail']
+        
+        # 3. CAÇADOR DE ARQUIVOS: Procura qual arquivo foi gerado
+        for arquivo in os.listdir("downloads"):
+            if video_id in arquivo:
+                caminho_completo = os.path.join("downloads", arquivo)
+                return caminho_completo, titulo, thumb
+                
+        raise Exception("O download parece ter funcionado, mas não achei o arquivo na pasta!")
 # --- Interface do Usuário ---
 
 url = st.text_input("🔗 Link do YouTube (Teste com vídeos curtos < 10min):")
@@ -96,4 +102,5 @@ if st.button("🚀 INICIAR ANÁLISE REAL"):
         except Exception as e:
             status.update(label="❌ Erro Crítico", state="error")
             st.error(f"Ocorreu um erro: {e}")
+
 
